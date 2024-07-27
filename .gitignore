@@ -1,0 +1,13 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# vscode
+*code-workspace
+
+# compiled app
+dist
+
+.env
+node_modules
