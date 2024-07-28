@@ -23,6 +23,18 @@ const address = '0xcA11bde05977b3631167028862bE2a173976CA11';
 
 type MultiCallParam = { address: string; calldata: string };
 
+/**
+ * a generic multicall function that can be used to fetch multiple data in one call
+ * note that the response may need extra parsing as the return types are array of bytes
+ *
+ * one handy approach is to reuse the abi instance on the call params to decode the return data
+ * @example given a function that return an address, we can do this to parse the address from the return data
+ * ```
+ * res.map((d) => abi.decodeFunctionResult('<function fragment', d)[0])
+ * ```
+ *
+ * for some simpler cases (e.g. return an uint256), we can just use the ethers.BigNumber.from(d) to parse the return data
+ */
 export const Multicall = (rpc: string): (<T>(...params: MultiCallParam[]) => Promise<T[]>) => {
     const contract = new ethers.Contract(address, abi, new ethers.JsonRpcProvider(rpc));
 

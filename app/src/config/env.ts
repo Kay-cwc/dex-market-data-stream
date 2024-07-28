@@ -16,6 +16,7 @@ const AppConfigSchema = z.object({
 
 export type TAppConfig = z.infer<typeof AppConfigSchema>;
 
+/** to validate and parse the env into a typed object before app start. this has no dependency on fastify */
 export const appConfig = ((): TAppConfig => {
     const env = process.env;
     const parsedEnv = AppConfigSchema.parse({
