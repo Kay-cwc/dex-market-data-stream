@@ -57,11 +57,9 @@ const abi = new Interface([
  * market data service. responsible for
  * 1. connecting to the market data stream for one chain via the rpc socket
  * 2. digest the msg from the data stream.
- * 
+ *
  * note:
  * only uniswap v2 stream is supported for now
-
- * @param endpoint ws endpoint for market data stream
  */
 export const marketDataService = async (chain: Chain, dex: Dex, pairs_: PairConfig[]): Promise<void> => {
     isValidEnumOrThrow<Dex>(Dex, dex);
