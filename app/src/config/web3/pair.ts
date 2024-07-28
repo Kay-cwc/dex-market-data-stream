@@ -28,7 +28,9 @@ export const loadDexPairConfig = (): void => {
 
     for (const file of files) {
         const exp = new RegExp(/pair_config_[A-Za-z]+\.json/);
-        // find matching files
+        /**
+         * find all matching config files and parse the content to DexPairConfig in the current directory
+         */
         if (exp.test(file)) {
             const [chain] = file.replace('pair_config_', '').split('.');
             const { data: chainName, success: isValidChain } = z.nativeEnum(Chain).safeParse(chain);
@@ -36,7 +38,12 @@ export const loadDexPairConfig = (): void => {
 
             const config = JSON.parse(readFileSync(__dirname + `/${file}`, 'utf8'));
 
-            // validate DexPairConfig
+            /**
+             * validate DexPairConfig
+             * here we want to make sure that all config loaded from config file to memory are type safe in runtime
+             * we don't consider any handling for invalid config, just throw an error.
+             * since in this case, it must be human error and the app should not start at all
+             */
             Object.entries(config).forEach(([dex, pairs]) => {
                 if (!z.nativeEnum(Dex).safeParse(dex)) throw new Error(`Invalid dex ${dex} from file ${file}`);
                 if (!Array.isArray(pairs)) throw new Error(`Invalid config for ${chainName} and ${dex}`);

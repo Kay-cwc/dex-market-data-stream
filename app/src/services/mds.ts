@@ -12,6 +12,7 @@ import { EthLog, EthLogSchema, rpcConnectionService } from './rpcConnection';
 const dexToTopics = (dex: Dex): string[] => {
     switch (dex) {
         case Dex.UNISWAP_V2:
+            // pool reserve event
             return ['0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1'];
         default:
             return assertUnreachable(dex);
@@ -53,7 +54,11 @@ const abi = new Interface([
 ]);
 
 /**
- * market data service. responsible for connecting to the market data stream for one chain and digest the msg from the data stream.
+ * market data service. responsible for
+ * 1. connecting to the market data stream for one chain via the rpc socket
+ * 2. digest the msg from the data stream.
+ * 
+ * note:
  * only uniswap v2 stream is supported for now
 
  * @param endpoint ws endpoint for market data stream
@@ -96,6 +101,8 @@ export const marketDataService = async (chain: Chain, dex: Dex, pairs_: PairConf
             console.log('Unknown pair', log.params.result);
             return;
         }
+        // the output is a 130 bytes start with 0x
+        // the remaining 128 bytes are the reserve0 and reserve1
         const data = log.params.result.data.slice(2);
         const reserve0 = BigNumber('0x' + data.slice(0, 64)).shiftedBy(-pair.token0.decimals);
         const reserve1 = BigNumber('0x' + data.slice(64, 128)).shiftedBy(-pair.token1.decimals);
@@ -104,6 +111,11 @@ export const marketDataService = async (chain: Chain, dex: Dex, pairs_: PairConf
         pairs[log.params.result.address].r1 = reserve1.toNumber();
 
         console.log(pairs[log.params.result.address]);
+        /**
+         * @remarks
+         * here we can decide how to handle the data, for example, we can send it to kafka.
+         * also we can store the data in a nosql cache to increase data availability
+         */
     };
 
     const uniswapV2Callback = async (log: EthLog): Promise<void> => {
@@ -114,6 +126,9 @@ export const marketDataService = async (chain: Chain, dex: Dex, pairs_: PairConf
             console.log('Unsupported event', log.params.result);
             return;
         }
+
+        // in future, it is possible to support more event (like add liquidity or remove liquidity)
+        // this gives us the flexibility to add more event in the future
         switch (event) {
             case DexEvent.POOL_RESERVE:
                 await streamPoolReserve(log);
@@ -124,14 +139,14 @@ export const marketDataService = async (chain: Chain, dex: Dex, pairs_: PairConf
     };
 
     console.log(`Connecting to ${chain}-${dex} market data service`);
-    const mds = await rpcConnectionService(rpcConfig.WS);
+    const rpcConn = await rpcConnectionService(rpcConfig.WS);
     const params = {
         address: Object.values(pairs).map((pair) => pair.address),
         topics: dexToTopics(dex),
     };
 
-    mds.subscribe(params, uniswapV2Callback);
-    mds.connect();
+    rpcConn.subscribe(params, uniswapV2Callback);
+    rpcConn.connect();
 };
 
 // multicall for all pair token 0
