@@ -4,7 +4,8 @@ import { join } from 'path';
 
 import { Chain, Dex } from './config/web3/dex';
 import { chainPairConfig, loadDexPairConfig } from './config/web3/pair';
-import { kafkaProducer } from './lib/kafka';
+import { kafkaConsumer, kafkaProducer } from './lib/kafka';
+import { FeedConsumer } from './services/feed';
 import { marketDataService } from './services/mds';
 
 export interface AppOptions extends FastifyServerOptions, Partial<AutoloadPluginOptions> {}
@@ -19,6 +20,12 @@ const app: FastifyPluginAsync<AppOptions> = async (fastify, opts): Promise<void>
     Object.values(Chain).map(async (chain) => {
         marketDataService(chain, Dex.UNISWAP_V2, chainPairConfig[chain][Dex.UNISWAP_V2]);
     });
+
+    await kafkaConsumer.connect();
+
+    const topic = `${Chain.MAINNET}-${Dex.UNISWAP_V2}`;
+    const feedConsumer = await FeedConsumer(topic);
+    feedConsumer.listen((feed) => console.log(feed));
 
     // Do not touch the following lines
 

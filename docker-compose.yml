@@ -29,8 +29,8 @@ services:
     build:
       context: ./app
       dockerfile: Dockerfile
-    # depends_on:
-    #   - kafka
+    depends_on:
+      - kafka
     environment:
       FASTIFY_PORT: $APP_PORT
       FASIFTY_ADDRESS: $APP_HOST

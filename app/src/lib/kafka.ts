@@ -1,4 +1,4 @@
-import { Kafka } from 'kafkajs';
+import { Kafka, Partitioners } from 'kafkajs';
 
 import { appConfig } from '../config/env';
 
@@ -7,4 +7,11 @@ export const kafka = new Kafka({
     brokers: [appConfig.KAFKA_BROKER],
 });
 
-export const kafkaProducer = kafka.producer();
+export const kafkaProducer = kafka.producer({
+    allowAutoTopicCreation: true,
+    createPartitioner: Partitioners.DefaultPartitioner,
+});
+
+export const kafkaConsumer = kafka.consumer({
+    groupId: 'dex-data-consumer',
+});

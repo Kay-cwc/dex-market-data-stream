@@ -1,11 +1,13 @@
 // market data service
 import BigNumber from 'bignumber.js';
 import { Interface } from 'ethers';
+import z from 'zod';
 
 import { appConfig } from '../config/env';
 import { Chain, Dex, DexEvent } from '../config/web3/dex';
 import { PairConfig } from '../config/web3/pair';
 import { assertUnreachable, isValidEnumOrThrow } from '../lib/common';
+import { kafkaProducer } from '../lib/kafka';
 import { Multicall } from '../lib/multicall';
 import { EthLog, EthLogSchema, rpcConnectionService } from './rpcConnection';
 
@@ -28,23 +30,27 @@ const topicToPoolReserve = (topic: string): DexEvent | undefined => {
     }
 };
 
-type Token = {
-    address: string;
-    decimals: number;
-};
+export const tokenSchema = z.object({
+    address: z.string(),
+    decimals: z.number(),
+});
 
-type Pair = {
-    symbol: string;
-    address: string;
-    token0: Token;
-    token1: Token;
-    r0: number;
-    r1: number;
-    topics: string[];
-};
+export type Token = z.infer<typeof tokenSchema>;
 
-type PairMap = {
-    [address: string]: Pair;
+export const feedSchema = z.object({
+    symbol: z.string(),
+    address: z.string(),
+    token0: tokenSchema,
+    token1: tokenSchema,
+    r0: z.number(),
+    r1: z.number(),
+    topics: z.array(z.string()),
+});
+
+export type Feed = z.infer<typeof feedSchema>;
+
+type FeedMap = {
+    [address: string]: Feed;
 };
 
 const abi = new Interface([
@@ -74,7 +80,7 @@ export const marketDataService = async (chain: Chain, dex: Dex, pairs_: PairConf
     const decimal1 = await callDecimals(multicall, token1);
 
     // to initialize all pairs
-    const pairs: PairMap = pairs_.reduce((acc, pair, index) => {
+    const feeds: FeedMap = pairs_.reduce((acc, pair, index) => {
         acc[pair.address.toLowerCase()] = {
             symbol: pair.pair,
             topics: dexToTopics(dex),
@@ -91,10 +97,10 @@ export const marketDataService = async (chain: Chain, dex: Dex, pairs_: PairConf
             r1: 0,
         };
         return acc;
-    }, {} as PairMap);
+    }, {} as FeedMap);
 
     const streamPoolReserve = async (log: EthLog): Promise<void> => {
-        const pair = pairs[log.params.result.address];
+        const pair = feeds[log.params.result.address];
         if (!pair) {
             console.log('Unknown pair', log.params.result);
             return;
@@ -105,15 +111,27 @@ export const marketDataService = async (chain: Chain, dex: Dex, pairs_: PairConf
         const reserve0 = BigNumber('0x' + data.slice(0, 64)).shiftedBy(-pair.token0.decimals);
         const reserve1 = BigNumber('0x' + data.slice(64, 128)).shiftedBy(-pair.token1.decimals);
 
-        pairs[log.params.result.address].r0 = reserve0.toNumber();
-        pairs[log.params.result.address].r1 = reserve1.toNumber();
+        const feed = feeds[log.params.result.address];
+        feed.r0 = reserve0.toNumber();
+        feed.r1 = reserve1.toNumber();
 
-        console.log(pairs[log.params.result.address]);
+        feeds[log.params.result.address] = feed;
+
         /**
          * @remarks
          * here we can decide how to handle the data, for example, we can send it to kafka.
          * also we can store the data in a nosql cache to increase data availability
          */
+
+        await kafkaProducer.send({
+            topic: `${chain}-${dex}`,
+            messages: [
+                {
+                    key: 'pool_reserve',
+                    value: JSON.stringify(feed),
+                },
+            ],
+        });
     };
 
     const uniswapV2Callback = async (log: EthLog): Promise<void> => {
@@ -139,7 +157,7 @@ export const marketDataService = async (chain: Chain, dex: Dex, pairs_: PairConf
     console.log(`Connecting to ${chain}-${dex} market data service`);
     const rpcConn = await rpcConnectionService(rpcConfig.WS);
     const params = {
-        address: Object.values(pairs).map((pair) => pair.address),
+        address: Object.values(feeds).map((pair) => pair.address),
         topics: dexToTopics(dex),
     };
 
