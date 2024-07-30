@@ -1,63 +1,12 @@
 // market data service
-import BigNumber from 'bignumber.js';
-import { Interface } from 'ethers';
-import z from 'zod';
-
 import { appConfig } from '../config/env';
-import { Chain, Dex, DexEvent } from '../config/web3/dex';
-import { PairConfig } from '../config/web3/pair';
-import { assertUnreachable, isValidEnumOrThrow } from '../lib/common';
-import { kafkaProducer } from '../lib/kafka';
-import { Multicall } from '../lib/multicall';
-import { EthLog, EthLogSchema, rpcConnectionService } from './rpcConnection';
+import { Chain, Dex } from '../config/web3/dex';
+import { isValidEnumOrThrow } from '../lib/common';
+import { EthLog, SubscripitonParams, rpcConnectionService } from './rpcConnection';
 
-const dexToTopics = (dex: Dex): string[] => {
-    switch (dex) {
-        case Dex.UNISWAP_V2:
-            // pool reserve event
-            return ['0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1'];
-        default:
-            return assertUnreachable(dex);
-    }
-};
+export type MDS = Awaited<ReturnType<typeof marketDataService>>;
 
-const topicToPoolReserve = (topic: string): DexEvent | undefined => {
-    switch (topic.toLowerCase()) {
-        case '0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1':
-            return DexEvent.POOL_RESERVE;
-        default:
-            return undefined;
-    }
-};
-
-export const tokenSchema = z.object({
-    address: z.string(),
-    decimals: z.number(),
-});
-
-export type Token = z.infer<typeof tokenSchema>;
-
-export const feedSchema = z.object({
-    symbol: z.string(),
-    address: z.string(),
-    token0: tokenSchema,
-    token1: tokenSchema,
-    r0: z.number(),
-    r1: z.number(),
-    topics: z.array(z.string()),
-});
-
-export type Feed = z.infer<typeof feedSchema>;
-
-type FeedMap = {
-    [address: string]: Feed;
-};
-
-const abi = new Interface([
-    'function token0() external view returns (address)',
-    'function token1() external view returns (address)',
-    'function decimals() external view returns (uint8)',
-]);
+type MessageCB = (log: EthLog) => Promise<void> | void;
 
 /**
  * market data service. responsible for
@@ -67,139 +16,57 @@ const abi = new Interface([
  * note:
  * only uniswap v2 stream is supported for now
  */
-export const marketDataService = async (chain: Chain, dex: Dex, pairs_: PairConfig[]): Promise<void> => {
+export const marketDataService = async (
+    chain: Chain,
+    dex: Dex
+): Promise<{
+    register: (args: { address: string[]; topics: string[] }, onMessage: (log: EthLog) => Promise<void> | void) => void;
+}> => {
     isValidEnumOrThrow<Dex>(Dex, dex);
     const rpcConfig = appConfig.RPC[chain];
     console.log(`Initializing market data service for ${chain}`);
 
-    // fetch all metadata for all pairs
-    const multicall = Multicall(rpcConfig.HTTP);
-    const token0 = await callToken0(multicall, pairs_);
-    const token1 = await callToken1(multicall, pairs_);
-    const decimal0 = await callDecimals(multicall, token0);
-    const decimal1 = await callDecimals(multicall, token1);
-
-    // to initialize all pairs
-    const feeds: FeedMap = pairs_.reduce((acc, pair, index) => {
-        acc[pair.address.toLowerCase()] = {
-            symbol: pair.pair,
-            topics: dexToTopics(dex),
-            address: pair.address.toLowerCase(),
-            token0: {
-                address: token0[index],
-                decimals: decimal0[index],
-            },
-            token1: {
-                address: token1[index],
-                decimals: decimal1[index],
-            },
-            r0: 0,
-            r1: 0,
-        };
-        return acc;
-    }, {} as FeedMap);
-
-    const streamPoolReserve = async (log: EthLog): Promise<void> => {
-        const pair = feeds[log.params.result.address];
-        if (!pair) {
-            console.log('Unknown pair', log.params.result);
-            return;
-        }
-        // the output is a 130 bytes start with 0x
-        // the remaining 128 bytes are the reserve0 and reserve1
-        const data = log.params.result.data.slice(2);
-        const reserve0 = BigNumber('0x' + data.slice(0, 64)).shiftedBy(-pair.token0.decimals);
-        const reserve1 = BigNumber('0x' + data.slice(64, 128)).shiftedBy(-pair.token1.decimals);
-
-        const feed = feeds[log.params.result.address];
-        feed.r0 = reserve0.toNumber();
-        feed.r1 = reserve1.toNumber();
-
-        feeds[log.params.result.address] = feed;
-
-        /**
-         * @remarks
-         * here we can decide how to handle the data, for example, we can send it to kafka.
-         * also we can store the data in a nosql cache to increase data availability
-         */
-
-        await kafkaProducer.send({
-            topic: `${chain}-${dex}`,
-            messages: [
-                {
-                    key: 'pool_reserve',
-                    value: JSON.stringify(feed),
-                },
-            ],
-        });
-    };
-
-    const uniswapV2Callback = async (log: EthLog): Promise<void> => {
-        if (!EthLogSchema.safeParse(log).success) throw new Error('Invalid log');
-        log.params.result.address = log.params.result.address.toLowerCase();
-        const event = topicToPoolReserve(log.params.result.topics[0]);
-        if (!event) {
-            console.log('Unsupported event', log.params.result);
-            return;
-        }
-
-        // in future, it is possible to support more event (like add liquidity or remove liquidity)
-        // this gives us the flexibility to add more event in the future
-        switch (event) {
-            case DexEvent.POOL_RESERVE:
-                await streamPoolReserve(log);
-                break;
-            default:
-                assertUnreachable(event);
-        }
-    };
+    const messageCBs = new Map<string, MessageCB[]>();
 
     console.log(`Connecting to ${chain}-${dex} market data service`);
     const rpcConn = await rpcConnectionService(rpcConfig.WS);
-    const params = {
-        address: Object.values(feeds).map((pair) => pair.address),
-        topics: dexToTopics(dex),
+
+    const onFeed = (log: EthLog): void => {
+        const topic = log.params.result.topics[0];
+        if (!topic || !log.params.result.address) {
+            console.log('Invalid log', log);
+            return;
+        }
+        const key = `${log.params.result.address.toLowerCase()}-${topic.toLowerCase()}`;
+        const cbs = messageCBs.get(key);
+        if (cbs) {
+            cbs.map((cb) => cb(log));
+        }
     };
 
-    rpcConn.subscribe(params, uniswapV2Callback);
+    // the only exposed function for this service
+    // register a callback for a pair of address and topic
+    // one compound id can have multiple registered callback. meaning multiple components can listen to the same pair
+    const registerPairs = (args: SubscripitonParams, onMessage: (log: EthLog) => Promise<void> | void): void => {
+        // store the callback
+        args.address.forEach((address) => {
+            args.topics.forEach((topic) => {
+                const key = `${address.toLowerCase()}-${topic.toLowerCase()}`;
+                if (!messageCBs.has(key)) {
+                    messageCBs.set(key, []);
+                } else {
+                    messageCBs.get(key)?.push(onMessage);
+                }
+            });
+        });
+
+        // subscribe to the stream
+        rpcConn.subscribe(args, onFeed);
+    };
+
     rpcConn.connect();
-};
 
-// multicall for all pair token 0
-const callToken0 = async (multicall: Awaited<ReturnType<typeof Multicall>>, pairs: PairConfig[]): Promise<string[]> => {
-    const res = await multicall<string>(
-        ...pairs.map((pair) => {
-            return {
-                address: pair.address,
-                calldata: abi.encodeFunctionData('token0'),
-            };
-        })
-    );
-    return res.map((d) => abi.decodeFunctionResult('token0', d)[0]);
-};
-
-// multicall for all pair token 1
-const callToken1 = async (multicall: Awaited<ReturnType<typeof Multicall>>, pairs: PairConfig[]): Promise<string[]> => {
-    const res = await multicall<string>(
-        ...pairs.map((pair) => {
-            return {
-                address: pair.address,
-                calldata: abi.encodeFunctionData('token1'),
-            };
-        })
-    );
-    return res.map((d) => abi.decodeFunctionResult('token1', d)[0]);
-};
-
-// multicall for all pair decimals
-const callDecimals = async (multicall: Awaited<ReturnType<typeof Multicall>>, tokens: string[]): Promise<number[]> => {
-    const res = await multicall<string>(
-        ...tokens.map((token) => {
-            return {
-                address: token,
-                calldata: abi.encodeFunctionData('decimals'),
-            };
-        })
-    );
-    return res.map((d) => parseInt(d, 16));
+    return {
+        register: registerPairs,
+    };
 };

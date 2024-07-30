@@ -5,8 +5,9 @@ import { join } from 'path';
 import { Chain, Dex } from './config/web3/dex';
 import { chainPairConfig, loadDexPairConfig } from './config/web3/pair';
 import { kafkaConsumer, kafkaProducer } from './lib/kafka';
-import { FeedConsumer } from './services/feed';
+import { FeedConsumer } from './services/feedProcessor';
 import { marketDataService } from './services/mds';
+import { streamUniswapV2 } from './services/stream/uniswapV2';
 
 export interface AppOptions extends FastifyServerOptions, Partial<AutoloadPluginOptions> {}
 // Pass --options via CLI arguments in command to enable these options.
@@ -14,18 +15,21 @@ const options: AppOptions = {};
 
 const app: FastifyPluginAsync<AppOptions> = async (fastify, opts): Promise<void> => {
     // Place here your custom code!
+
+    // producer part
     await kafkaProducer.connect();
     loadDexPairConfig();
 
-    Object.values(Chain).map(async (chain) => {
-        marketDataService(chain, Dex.UNISWAP_V2, chainPairConfig[chain][Dex.UNISWAP_V2]);
-    });
+    const pairs = chainPairConfig[Chain.MAINNET][Dex.UNISWAP_V2];
+    const mdsMainnet = await marketDataService(Chain.MAINNET, Dex.UNISWAP_V2);
+    await streamUniswapV2(Chain.MAINNET, pairs, mdsMainnet);
 
+    // consumer part
     await kafkaConsumer.connect();
 
     const topic = `${Chain.MAINNET}-${Dex.UNISWAP_V2}`;
     const feedConsumer = await FeedConsumer(topic);
-    feedConsumer.listen((feed) => console.log(feed));
+    feedConsumer.listen((feed) => fastify.log.info(feed));
 
     // Do not touch the following lines
 

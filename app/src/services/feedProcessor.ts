@@ -1,5 +1,5 @@
 import { kafka } from '../lib/kafka';
-import { Feed, feedSchema } from './mds';
+import { Feed, feedSchema } from './stream/types';
 
 export async function FeedConsumer(topic: string): Promise<{
     listen: (onMessage: (feed: Feed) => Promise<void> | void) => Promise<void>;
