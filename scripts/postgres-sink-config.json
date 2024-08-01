@@ -12,12 +12,12 @@
         "insert.mode": "insert",
         "pk.mode": "kafka",
         "table.name.format": "kafka_log_${topic}",
-        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
-        "value.converter": "io.confluent.connect.avro.AvroConverter",
-        "value.converter.schema.registry.url": "http://localhost:8081",
-        "value.converter.schemas.enable": false,
+        "value.converter.schemas.enable": true,
+        "value.subject.name.strategy": "io.confluent.kafka.serializers.subject.RecordNameStrategy",
         "errors.tolerance": "all",
         "errors.log.enable": true,
-        "errors.log.include.messages": true
+        "errors.log.include.messages": true,
+        "auto.register.schemas": true,
+        "use.latest.version": true
     }
 }

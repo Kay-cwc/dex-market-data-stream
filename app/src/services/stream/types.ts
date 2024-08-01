@@ -12,8 +12,10 @@ export type Token = z.infer<typeof tokenSchema>;
 export const feedSchema = z.object({
     symbol: z.string(),
     address: z.string(),
-    token0: tokenSchema,
-    token1: tokenSchema,
+    token0Address: z.string(),
+    token1Address: z.string(),
+    token0Decimal: z.number(),
+    token1Decimal: z.number(),
     r0: z.number(),
     r1: z.number(),
     basePrice: z.number(),

@@ -1,4 +1,4 @@
-import { kafka } from '../lib/kafka';
+import { kafka, registry } from '../lib/kafka';
 import { Feed, feedSchema } from './stream/types';
 
 export async function FeedConsumer(topic: string): Promise<{
@@ -20,9 +20,9 @@ export async function FeedConsumer(topic: string): Promise<{
                     console.warn(`Empty message on topic ${topic} partition ${partition}.`);
                     return;
                 }
-                const { success, data: feed } = feedSchema.safeParse(JSON.parse(msgBuffer.toString()));
+                const decodedMsg = await registry.decode(msgBuffer);
+                const { success, data: feed } = feedSchema.safeParse(decodedMsg);
                 if (!success || !feed) {
-                    console.log(JSON.parse(msgBuffer.toString()));
                     console.warn(
                         `[ZodError] Invalid message on topic ${topic} partition ${partition}. message does not match schema Feed`
                     );

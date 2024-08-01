@@ -32,10 +32,25 @@ services:
     # volumes:
     #   - postgres-data:/var/lib/postgresql/data
 
+  schema-registry:
+    image: confluentinc/cp-schema-registry:latest
+    hostname: schema-registry
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      # SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: 'zookeeper:2181'
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_DEBUG: 'true'
+
   kafka-connect:
     image: confluentinc/cp-kafka-connect:latest
     depends_on:
       - kafka
+      - schema-registry
       - postgres
     ports:
       - 8083:8083
@@ -46,10 +61,10 @@ services:
       CONNECT_CONFIG_STORAGE_TOPIC: _connect-configs
       CONNECT_OFFSET_STORAGE_TOPIC: _connect-offsets
       CONNECT_STATUS_STORAGE_TOPIC: _connect-status
-      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      # CONNECT_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      # CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      # CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      # CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
       CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
       CONNECT_LOG4J_LOGGERS: org.apache.kafka.connect.runtime.rest=WARN,org.reflections=ERROR
@@ -57,6 +72,11 @@ services:
       CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      # config 
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
     volumes:
       - ./connectors:/connectors
     command:
@@ -69,7 +89,6 @@ services:
         echo "Launching Kafka Connect worker"
         /etc/confluent/docker/run
 
-
   app:
     build:
       context: ./app
@@ -77,10 +96,12 @@ services:
     depends_on:
       - kafka
       - kafka-connect
+      - schema-registry
     environment:
       FASTIFY_PORT: $APP_PORT
       FASIFTY_ADDRESS: $APP_HOST
       KAFKA_BROKER: kafka:29092
+      SCHEMA_REGISTRY: http://schema-registry:8081
       RPC_MAINNET_WS: $RPC_MAINNET_WS
       RPC_MAINNET_HTTP: $RPC_MAINNET_HTTP
     volumes:

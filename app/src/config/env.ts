@@ -6,6 +6,7 @@ const AppConfigSchema = z.object({
     NODE_ENV: z.string(),
     FASTIFY_PORT: z.coerce.number(),
     KAFKA_BROKER: z.string(),
+    SCHEMA_REGISTRY: z.string(),
     RPC: z.object({
         [Chain.MAINNET]: z.object({
             WS: z.string(),
@@ -23,6 +24,7 @@ export const appConfig = ((): TAppConfig => {
         NODE_ENV: env.NODE_ENV,
         FASTIFY_PORT: env.FASTIFY_PORT,
         KAFKA_BROKER: env.KAFKA_BROKER,
+        SCHEMA_REGISTRY: env.SCHEMA_REGISTRY,
         RPC: {
             [Chain.MAINNET]: {
                 WS: env.RPC_MAINNET_WS,

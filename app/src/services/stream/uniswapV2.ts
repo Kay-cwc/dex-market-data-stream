@@ -5,7 +5,7 @@ import { appConfig } from '../../config/env';
 import { Chain, Dex } from '../../config/web3/dex';
 import { PairConfig } from '../../config/web3/pair';
 import { assertUnreachable } from '../../lib/common';
-import { kafkaProducer } from '../../lib/kafka';
+import { kafkaProducer, registry } from '../../lib/kafka';
 import { Multicall } from '../../lib/multicall';
 import { MDS } from '../mds';
 import { EthLog } from '../rpcConnection';
@@ -28,14 +28,10 @@ export const streamUniswapV2 = async (chain: Chain, pairs: PairConfig[], mds: MD
             symbol: pair.pair,
             topics: dexToTopics(dex),
             address: pair.address.toLowerCase(),
-            token0: {
-                address: token0[index],
-                decimals: decimal0[index],
-            },
-            token1: {
-                address: token1[index],
-                decimals: decimal1[index],
-            },
+            token0Address: token0[index],
+            token0Decimal: decimal0[index],
+            token1Address: token1[index],
+            token1Decimal: decimal1[index],
             r0: 0,
             r1: 0,
             basePrice: 0,
@@ -52,8 +48,8 @@ export const streamUniswapV2 = async (chain: Chain, pairs: PairConfig[], mds: MD
         // the output is a 130 bytes start with 0x
         // the remaining 128 bytes are the reserve0 and reserve1
         const data = log.params.result.data.slice(2);
-        const reserve0 = BigNumber('0x' + data.slice(0, 64)).shiftedBy(-pair.token0.decimals);
-        const reserve1 = BigNumber('0x' + data.slice(64, 128)).shiftedBy(-pair.token1.decimals);
+        const reserve0 = BigNumber('0x' + data.slice(0, 64)).shiftedBy(-pair.token0Decimal);
+        const reserve1 = BigNumber('0x' + data.slice(64, 128)).shiftedBy(-pair.token1Decimal);
 
         const feed = feeds.get(log.params.result.address);
         if (!feed) {
@@ -76,7 +72,7 @@ export const streamUniswapV2 = async (chain: Chain, pairs: PairConfig[], mds: MD
             messages: [
                 {
                     key: 'pool_reserve',
-                    value: JSON.stringify(feed),
+                    value: await registry.encode(1, feed),
                 },
             ],
         });
