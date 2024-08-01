@@ -29,8 +29,8 @@ services:
       POSTGRES_DB: logs_db
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
-    # volumes:
-    #   - postgres-data:/var/lib/postgresql/data
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
 
   schema-registry:
     image: confluentinc/cp-schema-registry:latest
@@ -61,10 +61,6 @@ services:
       CONNECT_CONFIG_STORAGE_TOPIC: _connect-configs
       CONNECT_OFFSET_STORAGE_TOPIC: _connect-offsets
       CONNECT_STATUS_STORAGE_TOPIC: _connect-status
-      # CONNECT_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      # CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      # CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      # CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
       CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
       CONNECT_LOG4J_LOGGERS: org.apache.kafka.connect.runtime.rest=WARN,org.reflections=ERROR
@@ -111,5 +107,5 @@ networks:
   default:
     name: kafka-network
 
-# volumes:
-#   postgres-data:
+volumes:
+  postgres-data:
