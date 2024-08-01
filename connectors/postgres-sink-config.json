@@ -1,0 +1,23 @@
+{
+    "name": "postgres-sink",
+    "config": {
+        "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+        "tasks.max": "1",
+        "topics": "mainnet-uniswap_v2",
+        "connection.url": "jdbc:postgresql://postgres:5432/logs_db",
+        "connection.user": "user",
+        "connection.password": "password",
+        "auto.create": true,
+        "auto.evolve": true,
+        "insert.mode": "insert",
+        "pk.mode": "kafka",
+        "table.name.format": "kafka_log_${topic}",
+        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+        "value.converter": "io.confluent.connect.avro.AvroConverter",
+        "value.converter.schema.registry.url": "http://localhost:8081",
+        "value.converter.schemas.enable": false,
+        "errors.tolerance": "all",
+        "errors.log.enable": true,
+        "errors.log.include.messages": true
+    }
+}

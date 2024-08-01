@@ -1,5 +1,6 @@
 import { Kafka, Partitioners } from 'kafkajs';
 
+// import { SchemaRegistry } from "@kafkajs/confluent-schema-registry";
 import { appConfig } from '../config/env';
 
 export const kafka = new Kafka({

@@ -22,8 +22,9 @@ export async function FeedConsumer(topic: string): Promise<{
                 }
                 const { success, data: feed } = feedSchema.safeParse(JSON.parse(msgBuffer.toString()));
                 if (!success || !feed) {
+                    console.log(JSON.parse(msgBuffer.toString()));
                     console.warn(
-                        `Invalid message on topic ${topic} partition ${partition}. message does not match schema Feed`
+                        `[ZodError] Invalid message on topic ${topic} partition ${partition}. message does not match schema Feed`
                     );
                 }
                 if (onMessage) {

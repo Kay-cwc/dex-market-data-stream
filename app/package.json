@@ -20,6 +20,7 @@
   "dependencies": {
     "@fastify/autoload": "^5.0.0",
     "@fastify/sensible": "^5.0.0",
+    "@kafkajs/confluent-schema-registry": "^3.3.0",
     "bignumber.js": "^9.1.2",
     "ethers": "^6.13.2",
     "fastify": "^4.26.1",
