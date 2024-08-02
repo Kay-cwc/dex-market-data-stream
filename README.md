@@ -25,14 +25,12 @@ sh configure-sink.sh # this will configure the sink for postgresql
 ```
 
 Note:
-we no longer need to manually configure the schema for the topic. The schema will be automatically created when the producer is up and running.
-all schema is declared in avdl format and is located in `app/src/avro/` folder.
-the file name is the topic name.
+we no longer need to manually configure the schema for the topic. The schema will be automatically created when the producer is up and running.  
+all schema is declared in avdl format and is located in `app/src/avro/` folder.  
+the file name is the topic name.  
 
 ### Supported Dex
 Currently support Mainnet UniswapV2 only. And only support for v2 pool configured in `app/src/config/web3/pair_config_mainnet.json`. You can add more pair by adding more pair address and pair id in the json file.
 
 Then you should see the data start streaming
-
-### NOTE
-Pub/sub is not setup yet.
+Data will now be sinked in postgresql as log as well
