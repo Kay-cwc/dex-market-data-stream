@@ -52,6 +52,11 @@ services:
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
       SCHEMA_REGISTRY_DEBUG: 'true'
+    healthcheck:
+      test: curl --output /dev/null --silent --head --fail http://schema-registry:8081/subjects
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   kafka-connect:
     image: confluentinc/cp-kafka-connect:latest
@@ -59,7 +64,7 @@ services:
       kafka:
         condition: service_healthy
       schema-registry:
-        condition: service_started
+        condition: service_healthy
       postgres:
         condition: service_started
     ports:
@@ -82,7 +87,12 @@ services:
       CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
       CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
       CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/connectors"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     volumes:
       - ./connectors:/connectors
     command:
@@ -95,23 +105,6 @@ services:
         echo "Launching Kafka Connect worker"
         /etc/confluent/docker/run
 
-  # kafka-connect-setup:
-  #   image: node:18
-  #   depends_on:
-  #     - kafka-connect
-  #   environment:
-  #     CONNECT_HOST: kafka-connect
-  #     CONNECT_PORT: 8083
-  #     CONNECT_PROTOCOL: http
-  #     CONNECT_CONNECTOR_NAME: postgres-connector
-  #     # CONNECT_CONNECTOR_CLASS: io.confluent.connect.jdbc.JdbcSourceConnector
-  #     # CONNECT_CONNECTOR_CONFIG: /connectors/postgres-sink-config.json
-  #   restart: "no"
-  #   volumes:
-  #     - ./scripts/configure-sink.sh:/configure-sink.sh
-  #   entrypoint: 
-  #     - sh -c "/configure-sink.sh"
-
   app:
     build:
       context: ./app
@@ -120,7 +113,7 @@ services:
       kafka:
         condition: service_healthy
       kafka-connect:
-        condition: service_started
+        condition: service_healthy
     environment:
       FASTIFY_PORT: $APP_PORT
       FASIFTY_ADDRESS: $APP_HOST
