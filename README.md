@@ -22,9 +22,12 @@ We need to configure the schema for the topic and configure the postgresql sink 
 ```
 cd ./scripts
 sh configure-sink.sh # this will configure the sink for postgresql
-sh register-uniswap-v2-schema.sh # this will register the schema for uniswap v2
 ```
 
+Note:
+we no longer need to manually configure the schema for the topic. The schema will be automatically created when the producer is up and running.
+all schema is declared in avdl format and is located in `app/src/avro/` folder.
+the file name is the topic name.
 
 ### Supported Dex
 Currently support Mainnet UniswapV2 only. And only support for v2 pool configured in `app/src/config/web3/pair_config_mainnet.json`. You can add more pair by adding more pair address and pair id in the json file.

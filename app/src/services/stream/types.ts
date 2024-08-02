@@ -10,6 +10,7 @@ export type Token = z.infer<typeof tokenSchema>;
 // base schema for feed. This is the minimum required to create a feed.
 // some dex will require specific schema. For example, uniswap v2 will require r0 and r1
 export const feedSchema = z.object({
+    chain: z.string(),
     symbol: z.string(),
     address: z.string(),
     token0Address: z.string(),

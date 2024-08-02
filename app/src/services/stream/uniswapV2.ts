@@ -5,7 +5,7 @@ import { appConfig } from '../../config/env';
 import { Chain, Dex } from '../../config/web3/dex';
 import { PairConfig } from '../../config/web3/pair';
 import { assertUnreachable } from '../../lib/common';
-import { kafkaProducer, registry } from '../../lib/kafka';
+import { kafkaProducer, registerSchema, registry } from '../../lib/kafka';
 import { Multicall } from '../../lib/multicall';
 import { MDS } from '../mds';
 import { EthLog } from '../rpcConnection';
@@ -14,6 +14,9 @@ import { Feed } from './types';
 export const streamUniswapV2 = async (chain: Chain, pairs: PairConfig[], mds: MDS): Promise<void> => {
     const dex = Dex.UNISWAP_V2;
     const rpcConfig = appConfig.RPC[chain];
+    const streamTopicName = dex;
+
+    const SCHEMA_ID = await registerSchema(streamTopicName);
 
     // fetch all metadata for all pairs
     const multicall = Multicall(rpcConfig.HTTP);
@@ -25,8 +28,9 @@ export const streamUniswapV2 = async (chain: Chain, pairs: PairConfig[], mds: MD
     // to initialize all pairs
     const feeds = pairs.reduce((acc, pair, index) => {
         acc.set(pair.address.toLowerCase(), {
+            chain,
             symbol: pair.pair,
-            topics: dexToTopics(dex),
+            topics: dexToEthLogTopics(dex),
             address: pair.address.toLowerCase(),
             token0Address: token0[index],
             token0Decimal: decimal0[index],
@@ -68,11 +72,11 @@ export const streamUniswapV2 = async (chain: Chain, pairs: PairConfig[], mds: MD
          */
 
         await kafkaProducer.send({
-            topic: `${chain}-${dex}`,
+            topic: streamTopicName,
             messages: [
                 {
                     key: 'pool_reserve',
-                    value: await registry.encode(1, feed),
+                    value: await registry.encode(SCHEMA_ID, feed),
                 },
             ],
         });
@@ -82,13 +86,13 @@ export const streamUniswapV2 = async (chain: Chain, pairs: PairConfig[], mds: MD
     mds.register(
         {
             address: Object.values(pairs).map((pair) => pair.address),
-            topics: dexToTopics(dex),
+            topics: dexToEthLogTopics(dex),
         },
         streamPoolReserve
     );
 };
 
-const dexToTopics = (dex: Dex): string[] => {
+const dexToEthLogTopics = (dex: Dex): string[] => {
     switch (dex) {
         case Dex.UNISWAP_V2:
             // pool reserve event

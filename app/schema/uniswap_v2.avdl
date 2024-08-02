@@ -1,0 +1,22 @@
+// this includes all events that will be processed by kafka
+// this is schema, we adopt the TopicNameStrategy
+// namespace will be the topic name
+// record name shall either be "key" or "value"
+// also note that the namespace should only contain alphanumeric characters, underscores or period.
+// see https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#how-the-naming-strategies-work
+@namespace("uniswap_v2")
+protocol UniswapV2 {
+    record value {
+        string chain;
+        string symbol;
+        array<string> topics;
+        string address;
+        string token0Address;
+        long token0Decimal;
+        string token1Address;
+        long token1Decimal;
+        double r0;
+        double r1;
+        long basePrice;
+    }
+}

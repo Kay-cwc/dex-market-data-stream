@@ -1,87 +1,29 @@
-import { SchemaRegistry, SchemaType } from '@kafkajs/confluent-schema-registry';
+import { SchemaRegistry, SchemaType, avdlToAVSCAsync } from '@kafkajs/confluent-schema-registry';
 import { Kafka, Partitioners } from 'kafkajs';
+import path from 'path';
 
 import { appConfig } from '../config/env';
 
-const schema = `{
-  "type": "record",
-  "name": "mainnet-uniswap_v2-value",
-  "namespace": "dex",
-  "fields": [
-    {
-      "name": "symbol",
-      "type": "string"
-    },
-    {
-      "name": "topics",
-      "type": {
-        "type": "array",
-        "items": "string"
-      }
-    },
-    {
-      "name": "address",
-      "type": "string"
-    },
-    {
-      "name": "token0",
-      "type": {
-        "type": "record",
-        "namespace": "Record",
-        "name": "token0",
-        "fields": [
-          {
-            "name": "address",
-            "type": "string"
-          },
-          {
-            "name": "decimals",
-            "type": "long"
-          }
-        ]
-      }
-    },
-    {
-      "name": "token1",
-      "type": {
-        "type": "record",
-        "namespace": "Record",
-        "name": "token1",
-        "fields": [
-          {
-            "name": "address",
-            "type": "string"
-          },
-          {
-            "name": "decimals",
-            "type": "long"
-          }
-        ]
-      }
-    },
-    {
-      "name": "r0",
-      "type": "double"
-    },
-    {
-      "name": "r1",
-      "type": "double"
-    },
-    {
-      "name": "basePrice",
-      "type": "long"
-    }
-  ]
-}`;
-
 export const registry = new SchemaRegistry({ host: appConfig.SCHEMA_REGISTRY });
 
-export const registerSchema = async (): Promise<void> => {
-    const { id } = await registry.register({
-        type: SchemaType.AVRO,
-        schema,
-    });
-    console.log(`Schema registered with id: ${id}`);
+export const registerSchema = async (schemaName: string): Promise<number> => {
+    // read all .avdl form the schema folder and register them
+    const schemaPath = path.resolve(__dirname, `../../schema/${schemaName}.avdl`);
+    const schema = await avdlToAVSCAsync(schemaPath);
+    /**
+     * we need this to adopt the TopicNameStrategy
+     * @see https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#how-the-naming-strategies-work
+     */
+    const { id } = await registry.register(
+        {
+            type: SchemaType.AVRO,
+            schema: JSON.stringify(schema),
+        },
+        { separator: '-' }
+    );
+    console.log(`Schema ${schema.namespace}-value registered with id: ${id}`);
+
+    return id;
 };
 
 export const kafka = new Kafka({
