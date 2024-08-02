@@ -20,6 +20,12 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   postgres:
     image: postgres:latest
@@ -36,7 +42,8 @@ services:
     image: confluentinc/cp-schema-registry:latest
     hostname: schema-registry
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     ports:
       - "8081:8081"
     environment:
@@ -49,9 +56,12 @@ services:
   kafka-connect:
     image: confluentinc/cp-kafka-connect:latest
     depends_on:
-      - kafka
-      - schema-registry
-      - postgres
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_started
+      postgres:
+        condition: service_started
     ports:
       - 8083:8083
     environment:
@@ -85,14 +95,32 @@ services:
         echo "Launching Kafka Connect worker"
         /etc/confluent/docker/run
 
+  # kafka-connect-setup:
+  #   image: node:18
+  #   depends_on:
+  #     - kafka-connect
+  #   environment:
+  #     CONNECT_HOST: kafka-connect
+  #     CONNECT_PORT: 8083
+  #     CONNECT_PROTOCOL: http
+  #     CONNECT_CONNECTOR_NAME: postgres-connector
+  #     # CONNECT_CONNECTOR_CLASS: io.confluent.connect.jdbc.JdbcSourceConnector
+  #     # CONNECT_CONNECTOR_CONFIG: /connectors/postgres-sink-config.json
+  #   restart: "no"
+  #   volumes:
+  #     - ./scripts/configure-sink.sh:/configure-sink.sh
+  #   entrypoint: 
+  #     - sh -c "/configure-sink.sh"
+
   app:
     build:
       context: ./app
       dockerfile: Dockerfile
     depends_on:
-      - kafka
-      - kafka-connect
-      - schema-registry
+      kafka:
+        condition: service_healthy
+      kafka-connect:
+        condition: service_started
     environment:
       FASTIFY_PORT: $APP_PORT
       FASIFTY_ADDRESS: $APP_HOST

@@ -1,3 +1,5 @@
+#!/bin/bash
+
 echo "checking the sink status..."
 
 if [ $(curl -X GET http://localhost:8083/connectors/postgres-sink/status | jq .error_code) == '404' ]; then

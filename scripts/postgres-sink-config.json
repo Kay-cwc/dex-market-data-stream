@@ -13,7 +13,6 @@
         "pk.mode": "kafka",
         "table.name.format": "kafka_log_${topic}",
         "value.converter.schemas.enable": true,
-        "value.subject.name.strategy": "io.confluent.kafka.serializers.subject.RecordNameStrategy",
         "errors.tolerance": "all",
         "errors.log.enable": true,
         "errors.log.include.messages": true,
