@@ -27,8 +27,7 @@ const app: FastifyPluginAsync<AppOptions> = async (fastify, opts): Promise<void>
     // consumer part
     await kafkaConsumer.connect();
 
-    const topic = `${Chain.MAINNET}-${Dex.UNISWAP_V2}`;
-    const feedConsumer = await FeedConsumer(topic);
+    const feedConsumer = await FeedConsumer(Dex.UNISWAP_V2);
     feedConsumer.listen((feed) => fastify.log.info(feed));
 
     // Do not touch the following lines

@@ -15,6 +15,7 @@ export async function FeedConsumer(topic: string): Promise<{
     const listen = async (onMessage: (feed: Feed) => Promise<void> | void): Promise<void> => {
         await consumer.run({
             eachMessage: async ({ message, topic, partition }) => {
+                console.log(`received msg offset at ${message.offset}`);
                 const msgBuffer = message.value;
                 if (!msgBuffer) {
                     console.warn(`Empty message on topic ${topic} partition ${partition}.`);
