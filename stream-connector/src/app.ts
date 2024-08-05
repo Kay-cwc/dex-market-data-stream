@@ -5,7 +5,6 @@ import { join } from 'path';
 import { Chain, Dex } from './config/web3/dex';
 import { chainPairConfig, loadDexPairConfig } from './config/web3/pair';
 import { kafkaConsumer, kafkaProducer } from './lib/kafka';
-import { FeedConsumer } from './services/feedProcessor';
 import { marketDataService } from './services/mds';
 import { streamUniswapV2 } from './services/stream/uniswapV2';
 
@@ -27,8 +26,8 @@ const app: FastifyPluginAsync<AppOptions> = async (fastify, opts): Promise<void>
     // consumer part
     await kafkaConsumer.connect();
 
-    const feedConsumer = await FeedConsumer(Dex.UNISWAP_V2);
-    feedConsumer.listen((feed) => fastify.log.info(feed));
+    // const feedConsumer = await FeedConsumer(Dex.UNISWAP_V2);
+    // feedConsumer.listen((feed) => fastify.log.info(feed));
 
     // Do not touch the following lines
 
