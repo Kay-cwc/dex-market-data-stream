@@ -105,9 +105,9 @@ services:
         echo "Launching Kafka Connect worker"
         /etc/confluent/docker/run
 
-  app:
+  stream-connector:
     build:
-      context: ./app
+      context: ./stream-connector
       dockerfile: Dockerfile
     depends_on:
       kafka:
@@ -122,7 +122,7 @@ services:
       RPC_MAINNET_WS: $RPC_MAINNET_WS
       RPC_MAINNET_HTTP: $RPC_MAINNET_HTTP
     volumes:
-      - ./app:/app
+      - ./stream-connector:/app
 
   schema-registry-ui:
     image: landoop/schema-registry-ui
