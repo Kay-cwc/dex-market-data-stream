@@ -16,14 +16,6 @@ docker compose build
 docker compose up
 ```
 
-### After the service is up
-We need to configure the schema for the topic and configure the postgresql sink for kafka connectors. Run the following command:
-
-```
-cd ./scripts
-sh configure-sink.sh # this will configure the sink for postgresql
-```
-
 Note:
 we no longer need to manually configure the schema for the topic. The schema will be automatically created when the producer is up and running.  
 all schema is declared in avdl format and is located in `app/src/avro/` folder.  
@@ -34,3 +26,10 @@ Currently support Mainnet UniswapV2 only. And only support for v2 pool configure
 
 Then you should see the data start streaming
 Data will now be sinked in postgresql as log as well
+
+
+### Output
+to see the last price of each pair of uniswap v2, you can call this api:  
+```
+GET /market-data/uniswap-v2
+```
