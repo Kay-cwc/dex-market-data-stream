@@ -7,7 +7,8 @@ export async function FeedConsumer(topic: string): Promise<{
     const consumer = kafka.consumer({
         groupId: 'dex-data-consumer',
     });
-    await consumer.subscribe({ topic, fromBeginning: true });
+    await consumer.connect();
+    await consumer.subscribe({ topic });
 
     /**
      * start listening to the kafka topic

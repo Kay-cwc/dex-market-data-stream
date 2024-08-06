@@ -13,6 +13,7 @@ import { Feed } from './types';
 
 export const streamUniswapV2 = async (chain: Chain, pairs: PairConfig[], mds: MDS): Promise<void> => {
     const dex = Dex.UNISWAP_V2;
+    console.log(appConfig);
     const rpcConfig = appConfig.RPC[chain];
     const streamTopicName = dex;
 

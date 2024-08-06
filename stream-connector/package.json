@@ -8,10 +8,7 @@
   },
   "scripts": {
     "test": "jest",
-    "start": "npm run build:ts && fastify start -l info dist/app.js",
-    "build:ts": "tsc",
-    "watch:ts": "tsc -w",
-    "dev": "npm run build:ts && concurrently -k -p \"[{name}]\" -n \"TypeScript,App\" -c \"yellow.bold,cyan.bold\" \"npm:watch:ts\" \"npm:dev:start\"",
+    "dev": "nodemon --watch src src/app.ts",
     "dev:start": "fastify start --ignore-watch=.ts$ -w -l info -P dist/app.js"
   },
   "keywords": [],
@@ -53,9 +50,10 @@
     "eslint-plugin-unused-imports": "^3.2.0",
     "fastify-tsconfig": "^2.0.0",
     "jest": "^29.7.0",
+    "nodemon": "^3.1.4",
     "prettier": "^3.2.5",
     "ts-jest": "^29.2.3",
-    "ts-node": "^10.4.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.2.2"
   }
 }
