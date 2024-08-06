@@ -17,6 +17,9 @@
         "errors.log.enable": true,
         "errors.log.include.messages": true,
         "auto.register.schemas": true,
-        "use.latest.version": true
+        "use.latest.version": true,
+        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+        "value.converter": "io.confluent.connect.avro.AvroConverter",
+        "value.converter.schema.registry.url": "http://schema-registry:8081"
     }
 }
