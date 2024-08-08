@@ -1,3 +1,4 @@
+// dotenv
 import fastify from 'fastify';
 
 import { appConfig } from './config/env';
@@ -67,12 +68,16 @@ const start = async (): Promise<void> => {
 };
 
 app.addHook('onListen', async () => {
+    // const admin = kafka.admin();
+    // await admin.connect();
+    // console.log(await admin.describeCluster());
+    // console.log(await admin.listTopics());
     // producer
     await kafkaProducer.connect();
+    kafkaProducer.logger().info('kafka producer connected');
     const mds = await marketDataService(Chain.MAINNET, Dex.UNISWAP_V2);
     const pairs = chainPairConfig[Chain.MAINNET][Dex.UNISWAP_V2];
     await streamUniswapV2(Chain.MAINNET, pairs, mds);
-
     // consumer
     await uniswapV2MarketData.start();
 });

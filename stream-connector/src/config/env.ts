@@ -1,6 +1,9 @@
+import dotenv from 'dotenv';
 import { z } from 'zod';
 
 import { Chain } from './web3/dex';
+
+dotenv.config();
 
 const AppConfigSchema = z.object({
     NODE_ENV: z.string(),

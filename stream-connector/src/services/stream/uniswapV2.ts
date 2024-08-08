@@ -5,7 +5,7 @@ import { appConfig } from '../../config/env';
 import { Chain, Dex } from '../../config/web3/dex';
 import { PairConfig } from '../../config/web3/pair';
 import { assertUnreachable } from '../../lib/common';
-import { kafkaProducer, registerSchema, registry } from '../../lib/kafka';
+import { kafkaProducer } from '../../lib/kafka';
 import { Multicall } from '../../lib/multicall';
 import { MDS } from '../mds';
 import { EthLog } from '../rpcConnection';
@@ -13,11 +13,9 @@ import { Feed } from './types';
 
 export const streamUniswapV2 = async (chain: Chain, pairs: PairConfig[], mds: MDS): Promise<void> => {
     const dex = Dex.UNISWAP_V2;
-    console.log(appConfig);
     const rpcConfig = appConfig.RPC[chain];
     const streamTopicName = dex;
-
-    const SCHEMA_ID = await registerSchema(streamTopicName);
+    // const SCHEMA_ID = await registerSchema(streamTopicName);
 
     // fetch all metadata for all pairs
     const multicall = Multicall(rpcConfig.HTTP);
@@ -72,12 +70,14 @@ export const streamUniswapV2 = async (chain: Chain, pairs: PairConfig[], mds: MD
          * also we can store the data in a nosql cache to increase data availability
          */
 
+        console.log('new feed');
         await kafkaProducer.send({
             topic: streamTopicName,
             messages: [
                 {
-                    key: 'pool_reserve',
-                    value: await registry.encode(SCHEMA_ID, feed),
+                    key: 'pool-reserve',
+                    // value: await registry.encode(SCHEMA_ID, feed),
+                    value: JSON.stringify(feed),
                 },
             ],
         });

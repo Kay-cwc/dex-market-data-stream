@@ -1,0 +1,98 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: dual-role
+  labels:
+    strimzi.io/cluster: my-cluster
+spec:
+  replicas: 1
+  roles:
+    - controller
+    - broker
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        type: persistent-claim
+        size: 100Gi
+        deleteClaim: false
+        kraftMetadata: shared
+---
+
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: my-cluster
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
+spec:
+  kafka:
+    version: 3.7.1
+    metadataVersion: 3.7-IV4
+    replicas: 1
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+      # - name: external
+      #   port: 9094
+      #   type: loadbalancer
+      #   tls: false
+      # - name: tls
+      #   port: 9094
+      #   type: ingress
+      #   tls: true
+      #   authentication:
+      #     type: tls
+      #   configuration:
+      #     bootstrap:
+      #       host: my-cluster-kafka-bootstrap.kafka.svc
+      #     brokers:
+      #     - broker: 0
+      #       host: kafka-0.my-cluster-kafka-bootstrap.kafka.svc
+      #     class: internal-tcp      
+
+    config:
+      offsets.topic.replication.factor: 1
+      transaction.state.log.replication.factor: 1
+      transaction.state.log.min.isr: 1
+      default.replication.factor: 1
+      min.insync.replicas: 1
+      auto.create.topics.enable: true
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-cluster-kafka-0
+spec:
+  type: LoadBalancer
+  selector:
+    statefulset.kubernetes.io/pod-name: my-cluster-kafka-0
+    strimzi.io/cluster: my-cluster
+    strimzi.io/kind: Kafka
+    strimzi.io/name: my-cluster-kafka
+    strimzi.io/pool-name: kafka
+  ports:
+    - protocol: TCP
+      port: 19094
+      targetPort: 9094
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: my-topic # this is how you configure the topic
+  labels:
+    strimzi.io/cluster: my-cluster
+spec:
+  partitions: 1
+  replicas: 1

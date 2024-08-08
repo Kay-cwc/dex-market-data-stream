@@ -1,28 +1,46 @@
 version: '3'
 services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:latest
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    volumes:
-      - zookeeper-data:/var/lib/zookeeper/data
-      - zookeeper-log:/var/lib/zookeeper/log
+  # zookeeper:
+  #   image: confluentinc/cp-zookeeper:latest
+  #   environment:
+  #     ZOOKEEPER_CLIENT_PORT: 2181
+  #     ZOOKEEPER_TICK_TIME: 2000
+  #   volumes:
+  #     - zookeeper-data:/var/lib/zookeeper/data
+  #     - zookeeper-log:/var/lib/zookeeper/log
 
-  kafka:
-    image: confluentinc/cp-kafka:latest
-    depends_on:
-      - zookeeper
+  kafka1:
+    image: confluentinc/cp-kafka:7.3.3
+    # depends_on:
     ports:
       - 9092:9092
+      - 29092:29092 # for contro
+    #   - zookeeperller
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      # KAFKA_BROKER_ID: 1
+      KAFKA_KRAFT_MODE: true
+      KAFKA_NODE_ID: 1
+      # KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://kafka1:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      # KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka1:29092,PLAINTEXT_HOST://localhost:9092
+
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1 # new config for kraft
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1 # new config for kraft
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:29093
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_OPTS: "-Dkafka.kraft.cluster.id=MkU3OEVBNTcwNTJENDM2Qk"
+    # command:
+    #   - sh
+    #   - -c 
+    #   - usr/bin/kafka-storage format -t KAFKA_CLUSTER_ID -c config/kraft/server.properties
     healthcheck:
       test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
       interval: 30s
@@ -47,7 +65,7 @@ services:
     image: confluentinc/cp-schema-registry:latest
     hostname: schema-registry
     depends_on:
-      kafka:
+      kafka1:
         condition: service_healthy
     ports:
       - "8081:8081"
@@ -66,7 +84,7 @@ services:
   kafka-connect:
     image: confluentinc/cp-kafka-connect:latest
     depends_on:
-      kafka:
+      kafka1:
         condition: service_healthy
       schema-registry:
         condition: service_healthy
@@ -75,7 +93,7 @@ services:
     ports:
       - 8083:8083
     environment:
-      CONNECT_BOOTSTRAP_SERVERS: kafka:29092
+      CONNECT_BOOTSTRAP_SERVERS: kafka1:29092
       CONNECT_REST_PORT: 8083
       CONNECT_GROUP_ID: kafka-connect
       CONNECT_CONFIG_STORAGE_TOPIC: _connect-configs
@@ -153,14 +171,14 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      kafka:
+      kafka1:
         condition: service_healthy
       kafka-connect:
         condition: service_healthy
     environment:
       FASTIFY_PORT: $APP_PORT
       FASIFTY_ADDRESS: $APP_HOST
-      KAFKA_BROKER: kafka:29092
+      KAFKA_BROKER: kafka1:29092
       SCHEMA_REGISTRY: http://schema-registry:8081
       RPC_MAINNET_WS: $RPC_MAINNET_WS
       RPC_MAINNET_HTTP: $RPC_MAINNET_HTTP
@@ -186,5 +204,5 @@ networks:
 volumes:
   postgres-data:
   kafka-data:
-  zookeeper-data:
-  zookeeper-log:
+  # zookeeper-data:
+  # zookeeper-log:

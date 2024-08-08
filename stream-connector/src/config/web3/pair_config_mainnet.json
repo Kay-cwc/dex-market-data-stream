@@ -1,5 +1,5 @@
 {
-  "uniswap_v2": [
+  "uniswap-v2": [
     {
       "address": "0x3041CbD36888bECc7bbCBc0045E3B1f144466f5f",
       "pair": "USDC-USDT-SWAP-UNISWAPV2"
